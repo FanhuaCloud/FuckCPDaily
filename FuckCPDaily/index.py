@@ -47,7 +47,8 @@ def log(content):
 def getCpdailyApis(user):
     apis = {}
     user = user['user']
-    schools = requests.get(url='https://mobile.campushoy.com/v6/config/guest/tenant/list', verify=not debug).json()['data']
+    schools = requests.get(url='https://mobile.campushoy.com/v6/config/guest/tenant/list', verify=not debug).json()[
+        'data']
     flag = True
     for one in schools:
         if one['name'] == user['school']:
@@ -135,11 +136,11 @@ def getUnSignedTasks(session, apis):
     }
     # 第一次请求每日签到任务接口，主要是为了获取MOD_AUTH_CAS
     res = session.post(
-        url='https://{host}/wec-counselor-sign-apps/stu/sign/queryDailySginTasks'.format(host=apis['host']),
+        url='https://{host}/wec-counselor-sign-apps/stu/sign/getStuSignInfosInOneDay'.format(host=apis['host']),
         headers=headers, data=json.dumps({}), verify=not debug)
     # 第二次请求每日签到任务接口，拿到具体的签到任务
     res = session.post(
-        url='https://{host}/wec-counselor-sign-apps/stu/sign/queryDailySginTasks'.format(host=apis['host']),
+        url='https://{host}/wec-counselor-sign-apps/stu/sign/getStuSignInfosInOneDay'.format(host=apis['host']),
         headers=headers, data=json.dumps({}), verify=not debug)
     if len(res.json()['datas']['unSignedTasks']) < 1:
         log('当前没有未签到任务')
@@ -163,7 +164,7 @@ def getDetailTask(session, params, apis):
         'Content-Type': 'application/json;charset=UTF-8'
     }
     res = session.post(
-         url='https://{host}/wec-counselor-sign-apps/stu/sign/detailSignTaskInst'.format(host=apis['host']),
+        url='https://{host}/wec-counselor-sign-apps/stu/sign/detailSignInstance'.format(host=apis['host']),
         headers=headers, data=json.dumps(params), verify=not debug)
     data = res.json()['datas']
     return data
@@ -277,34 +278,55 @@ def submitForm(session, user, form, apis):
         # 'Host': 'swu.cpdaily.com',
         'Connection': 'Keep-Alive'
     }
-    res = session.post(url='https://{host}/wec-counselor-sign-apps/stu/sign/completeSignIn'.format(host=apis['host']),
+    res = session.post(url='https://{host}/wec-counselor-sign-apps/stu/sign/submitSign'.format(host=apis['host']),
                        headers=headers, data=json.dumps(form), verify=not debug)
     message = res.json()['message']
     if message == 'SUCCESS':
         log('自动签到成功')
-        sendMessage('自动签到成功', '已完成自动打卡')
+        sendMessageByWeChat('自动签到成功', 'SUCCESS🎉\n今日校园打卡成功了o(*≧▽≦)ツ')
+        sendMessageByQQ('自动签到成功', 'SUCCESS🎉\n今日校园打卡成功了o(*≧▽≦)ツ')
     else:
         log('自动签到失败，原因是：' + message)
-        sendMessage('自动签到失败，原因是：' + message, '该收集已填写无需再次填写')
+        sendMessageByWeChat('自动签到失败，原因是：' + message, '🤔该收集已填写无需再次填写')
+        sendMessageByQQ('自动签到失败，原因是：' + message, '🤔该收集已填写无需再次填写')
         exit(-1)
 
-
-# 发送Server通知
-def sendMessage(send, msg):
+# 发送Server酱通知
+def sendMessageByWeChat(send, msg):
     if send != '':
-        log('正在用server酱进行推送')
-    key = "这里填Server酱官方提供的SCKEY" #  这里填Server酱官方提供的SCKEY
+        log('正在用Server酱进行推送')
+    key = "SCU103057T*********************************"  #  这里填Server酱官方提供的SCKEY
     url = "https://sc.ftqq.com/%s.send" % (key)
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36'}
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36'}
     payload = {'text': '今日校园疫情上报自动填表结果通知', 'desp': getTimeStr() + '\n\r' + str(msg)}
     res = requests.post(url, params=payload, headers=headers)
-    errmsg =res.json()['errmsg']
+    errmsg = res.json()['errmsg']
     if errmsg == 'success':
-        log('server酱通知成功')
+        log('Server酱通知成功')
     else:
         log('推送失败')
         log(res.json())
-    
+
+
+# 发送Qmsg酱通知
+def sendMessageByQQ(send, msg):
+    if send != '':
+        log('正在用Qmsg酱进行推送')
+    key = "1aacc*************************"  # 这里填Qmsg酱官方提供的KEY
+    url = "https://qmsg.zendee.cn/send/%s" % (key)
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36'}
+    payload = {'msg': '%s今日校园疫情上报自动填表结果通知' % (getTimeStr() + '\n') + '\n' + str(msg)} #  若代挂了其他人，可加入参数"qq"
+    res = requests.post(url, params=payload, headers=headers)
+    sucmsg = res.json()['success']
+    if sucmsg == True:
+        log('Qmsg酱通知成功')
+    else:
+        log('推送失败')
+        log(res.json())
+
+
 # 主函数
 def main():
     for user in config['users']:
